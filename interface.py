@@ -1,22 +1,23 @@
-import tkinter as tk
-from tkinter import messagebox, filedialog, ttk
-from tkinter.ttk import Button
 from green_game import *
-import csv
-from atualizacao import *
+
 
 class GreenGameApp:
+
     def __init__(self, root):
         self.root = root
         self.root.title("GreenGame Pro")
         self.root.geometry("900x600")
+        self.label_pontos = ttk.Label()
+        self.canvas = tk.Canvas()
+        self.scrollable_frame = ttk.Frame()
+        self.frame_usuarios = ttk.Frame()
 
         style = ttk.Style()
         style.theme_use('clam')
 
         # Frames principais
         frame_esquerda = ttk.Frame(root)
-        frame_esquerda.pack(side="left", fill="y", padx=10, pady=10)
+        frame_esquerda.pack(side="left", fill="y", expand=True, padx=10, pady=10)
 
         frame_direita = ttk.Frame(root)
         frame_direita.pack(side="right", fill="both", expand=True, padx=10, pady=10)
@@ -68,11 +69,6 @@ class GreenGameApp:
             frame_acoes,
             values=[
                 "Reciclou 1kg de plástico (+30 pts)",
-                "Reciclou 1 kg de Latinha (+50 pts)",
-                "Descartou elêtronicos corretamente (+50 pts)",
-                "Descartou remédio vencido na farmácia (+30pts)",
-                "Descartou embalagens e bulas na Farmacia (+30pts)",
-                "Andou de bicicleta (+40 pts)",
                 "Usou transporte público (+20 pts)",
                 "Economizou 100L de água (+15 pts)",
                 "Plantou uma árvore (+50 pts)",
@@ -91,10 +87,10 @@ class GreenGameApp:
         frame_export = ttk.LabelFrame(frame_esquerda, text="Exportar Dados", padding=10)
         frame_export.pack(fill="x", pady=5)
 
-        btn_export_csv: Button = ttk.Button(
+        btn_export_csv = ttk.Button(
             frame_export,
             text="Exportar para CSV",
-            command=self.exportar_csv)
+            command=exportar_csv)
         btn_export_csv.pack(fill="x", pady=5)
 
         # --- Frame Direita (Visualização) ---
@@ -160,9 +156,11 @@ class GreenGameApp:
         self.atualizar_interface()
 
     # --- MÉTODOS DA INTERFACE ---
+
     def atualizar_interface(self):
         self.atualizar_lista_usuarios()
         self.atualizar_historico()
+
 
     def atualizar_lista_usuarios(self):
         for item in self.tree_usuarios.get_children():
@@ -248,11 +246,6 @@ class GreenGameApp:
 
         mapa_acoes = {
             "Reciclou 1kg de plástico (+30 pts)": ("Reciclagem de plástico", 30),
-            "Reciclou 1kg de Latinha (+40 pts)": ("Reciclagem de Latinha", 40),
-            "Descartou elêtronicos corretamente (+50 pts)": ("descarte de eletronicos", 50),
-            "Descartou remédio vencido na farmácia (+30pts)": ("Descarte de Remédios vencido", 30),
-            "Descartou embalagens e bulas na Farmacia (+30pts)": ("Descarte de embalagens e bulas na Farmacia", 30),
-            "Andou de bicicleta (+40 pts)": ("Uso de bicicleta", 40),
             "Usou transporte público (+20 pts)": ("Uso de transporte público", 20),
             "Economizou 100L de água (+15 pts)": ("Economia de água", 15),
             "Plantou uma árvore (+50 pts)": ("Plantio de árvore", 50),
@@ -265,39 +258,6 @@ class GreenGameApp:
         messagebox.showinfo("Sucesso", f"Ação registrada: +{pontos} pontos para {usuario_selecionado}!")
         self.atualizar_interface()
 
-    @staticmethod
-    def exportar_csv():
-        filepath = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("Arquivos CSV", "*.csv")],
-            title="Salvar como")
-
-        if not filepath:
-            return
-
-        try:
-            with open(filepath, 'w', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerow(["Data", "Usuário", "Ação", "Pontos"])
-
-                conn = conectar_db()
-                cursor = conn.cursor()
-                cursor.execute('''
-                               SELECT a.data, u.nome, a.acao, a.pontos
-                               FROM acoes a
-                                        JOIN usuarios u ON a.usuario_id = u.id
-                               ORDER BY a.data DESC
-                               ''')
-
-                for row in cursor.fetchall():
-                    writer.writerow(row)
-
-                conn.close()
-
-            messagebox.showinfo("Sucesso", f"Dados exportados para:\n{filepath}")
-        except Exception as e:
-            messagebox.showerror("Erro", f"Falha ao exportar:\n{str(e)}")
-
 
 # --- INICIALIZAÇÃO ---
 if __name__ == "__main__":
@@ -306,110 +266,8 @@ if __name__ == "__main__":
     app = GreenGameApp(root)
     root.mainloop()
 
-    from atualizacao import *
 
 
-    class GreenGameApp:
-        def __init__(self, root):
 
-            # nova aba para loja
-            self.root = root
-            self.frame_loja = ttk.Frame(self.notebook)
-            self.notebook.add(self.frame_loja, text="Loja de Recompensas")
 
-            self.criar_aba_loja()
 
-        def criar_aba_loja(self):
-            # Frame superior (pontos do usuário)
-            frame_pontos = ttk.Frame(self.frame_loja)
-            frame_pontos.pack(fill="x", pady=5)
-
-            self.label_pontos = ttk.Label(frame_pontos, text="Seus pontos: 0", font=('Arial', 12, 'bold'))
-            self.label_pontos.pack(side="left")
-
-            # Frame das recompensas
-            frame_recompensas = ttk.Frame(self.frame_loja)
-            frame_recompensas.pack(fill="both", expand=True)
-
-            self.canvas = tk.Canvas(frame_recompensas)
-            scrollbar = ttk.Scrollbar(frame_recompensas, orient="vertical", command=self.canvas.yview)
-            self.scrollable_frame = ttk.Frame(self.canvas)
-
-            self.scrollable_frame.bind(
-                "<Configure>",
-                lambda e: self.canvas.configure(
-                    scrollregion=self.canvas.bbox("all")
-                )
-            )
-
-            self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
-            self.canvas.configure(yscrollcommand=scrollbar.set)
-
-            self.canvas.pack(side="left", fill="both", expand=True)
-            scrollbar.pack(side="right", fill="y")
-
-            self.carregar_recompensas()
-
-        def carregar_recompensas(self):
-            # Limpa recompensas anteriores
-            for widget in self.scrollable_frame.winfo_children():
-                widget.destroy()
-
-            # Busca recompensas do banco
-            recompensas = get_recompensas_disponiveis()
-
-            for rec in recompensas:
-                id_rec, nome, descricao, custo, estoque = rec
-
-                frame = ttk.Frame(self.scrollable_frame, padding=10, relief="groove", borderwidth=1)
-                frame.pack(fill="x", pady=5, padx=5)
-
-                ttk.Label(frame, text=nome, font=('Arial', 12, 'bold')).pack(anchor="w")
-                ttk.Label(frame, text=descricao).pack(anchor="w")
-
-                info = ttk.Frame(frame)
-                info.pack(fill="x")
-
-                ttk.Label(info, text=f"🪙 {custo} pontos", foreground="green").pack(side="left")
-                ttk.Label(info, text=f"📦 Estoque: {estoque}", foreground="blue").pack(side="right")
-
-                btn_resgatar = ttk.Button(
-                    frame,
-                    text="Resgatar",
-                    command=lambda id=id_rec: self.resgatar_recompensa(id)
-                )
-                btn_resgatar.pack(anchor="e")
-
-        def atualizar_pontos_loja(self):
-            usuario_selecionado = self.combo_usuarios_acao.get()
-            if usuario_selecionado:
-                usuario_id = int(usuario_selecionado.split("ID: ")[1].rstrip(")"))
-                conn = conectar_db()
-                cursor = conn.cursor()
-                cursor.execute('SELECT pontos FROM usuarios WHERE id = ?', (usuario_id,))
-                pontos = cursor.fetchone()[0]
-                self.label_pontos.config(text=f"Seus pontos: {pontos} 🪙")
-                conn.close()
-
-        def resgatar_recompensa(self, recompensa_id):
-            usuario_selecionado = self.combo_usuarios_acao.get()
-            if not usuario_selecionado:
-                messagebox.showerror("Erro", "Selecione um usuário primeiro!")
-                return
-
-            usuario_id = int(usuario_selecionado.split("ID: ")[1].rstrip(")"))
-
-            try:
-                if resgatar_recompensa(usuario_id, recompensa_id):
-                    messagebox.showinfo("Sucesso", "Recompensa resgatada com sucesso!")
-                    self.atualizar_interface()
-                    self.carregar_recompensas()
-                    self.atualizar_pontos_loja()
-            except Exception as e:
-                messagebox.showerror("Erro", str(e))
-
-        # Atualize o método atualizar_interface
-        def atualizar_interface(self):
-            self.atualizar_lista_usuarios()
-            self.atualizar_historico()
-            self.atualizar_pontos_loja()  # Nova linha adicionada
