@@ -1,5 +1,9 @@
 import sqlite3
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
+import csv
+
 
 # --- BANCO DE DADOS ---
 def conectar_db():
@@ -13,29 +17,117 @@ def criar_tabelas():
     cursor.execute('''
                    CREATE TABLE IF NOT EXISTS usuarios
                    (
-                       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                       nome          TEXT UNIQUE,
-                       pontos        INTEGER DEFAULT 0,
-                       data_cadastro TEXT
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       nome
+                       TEXT
+                       UNIQUE,
+                       pontos
+                       INTEGER
+                       DEFAULT
+                       0,
+                       data_cadastro
+                       TEXT
                    )
                    ''')
-
     cursor.execute('''
                    CREATE TABLE IF NOT EXISTS acoes
                    (
-                       id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                       usuario_id INTEGER,
-                       acao       TEXT,
-                       pontos     INTEGER,
-                       data       TEXT,
-                       FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
+                       id
+                       INTEGER
+                       PRIMARY
+                       KEY
+                       AUTOINCREMENT,
+                       usuario_id
+                       INTEGER,
+                       acao
+                       TEXT,
+                       pontos
+                       INTEGER,
+                       data
+                       TEXT,
+                       FOREIGN
+                       KEY
+                   (
+                       usuario_id
+                   ) REFERENCES usuarios
+                   (
+                       id
                    )
-
-
+                       )
                    ''')
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS recompensas
+                   (
+                       id
+                           INTEGER
+                           PRIMARY
+                               KEY
+                           AUTOINCREMENT,
+                       nome
+                           TEXT,
+                       descricao
+                           TEXT,
+                       custo_pontos
+                           INTEGER,
+                       estoque
+                           INTEGER
+                           DEFAULT
+                               10
+                   )
+                   ''')
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS resgates
+                   (
+                       id
+                           INTEGER
+                           PRIMARY
+                               KEY
+                           AUTOINCREMENT,
+                       usuario_id
+                           INTEGER,
+                       recompensa_id
+                           INTEGER,
+                       data
+                           TEXT,
+                       FOREIGN
+                           KEY
+                           (
+                            usuario_id
+                               ) REFERENCES usuarios
+                           (
+                            id
+                               ),
+                       FOREIGN KEY
+                           (
+                            recompensa_id
+                               ) REFERENCES recompensas
+                           (
+                            id
+                               )
+                   )
+                   ''')
+    cursor.execute('SELECT COUNT(*) FROM recompensas')
+
+    if cursor.fetchone()[0] == 0:
+        recompensas_iniciais = [
+            ("Cupom 10% EcoStore", "Desconto em loja sustentável", 100, 5),
+            ("Livro Sustentabilidade", "E-book grátis", 200, 3),
+            ("Caneca Ecológica", "Caneca de bambu personalizada", 300, 2),
+            ("Plantio de Árvore", "Uma árvore plantada em seu nome", 500, 10)
+        ]
+        cursor.executemany(
+            'INSERT INTO recompensas (nome, descricao, custo_pontos, estoque) VALUES (?, ?, ?, ?)',
+            recompensas_iniciais
+        )
 
     conn.commit()
     conn.close()
+
+
 # --- FUNÇÕES PRINCIPAIS ---
 def cadastrar_usuario(nome):
     """Cadastra novo usuário com validação"""
@@ -120,82 +212,6 @@ def get_historico_acoes(usuario_id=None):
     historico = cursor.fetchall()
     conn.close()
     return historico
-
-def criar_tabelas():
-    conn = conectar_db()
-    cursor = conn.cursor()
-
-    cursor.execute('''
-                   CREATE TABLE IF NOT EXISTS recompensas
-                   (
-                       id
-                       INTEGER
-                       PRIMARY
-                       KEY
-                       AUTOINCREMENT,
-                       nome
-                       TEXT,
-                       descricao
-                       TEXT,
-                       custo_pontos
-                       INTEGER,
-                       estoque
-                       INTEGER
-                       DEFAULT
-                       10
-                   )
-                   ''')
-
-    cursor.execute('''
-                   CREATE TABLE IF NOT EXISTS resgates
-                   (
-                       id
-                       INTEGER
-                       PRIMARY
-                       KEY
-                       AUTOINCREMENT,
-                       usuario_id
-                       INTEGER,
-                       recompensa_id
-                       INTEGER,
-                       data
-                       TEXT,
-                       FOREIGN
-                       KEY
-                   (
-                       usuario_id
-                   ) REFERENCES usuarios
-                   (
-                       id
-                   ),
-                       FOREIGN KEY
-                   (
-                       recompensa_id
-                   ) REFERENCES recompensas
-                   (
-                       id
-                   )
-                       )
-                   ''')
-
-    # Popule algumas recompensas iniciais
-    cursor.execute('SELECT COUNT(*) FROM recompensas')
-    if cursor.fetchone()[0] == 0:
-        recompensas_iniciais = [
-            ("Cupom 10% EcoStore", "Desconto em loja sustentável", 100, 5),
-            ("Livro Sustentabilidade", "E-book grátis", 200, 3),
-            ("Caneca Ecológica", "Caneca de bambu personalizada", 300, 2),
-            ("Plantio de Árvore", "Uma árvore plantada em seu nome", 500, 10)
-        ]
-        cursor.executemany(
-            'INSERT INTO recompensas (nome, descricao, custo_pontos, estoque) VALUES (?, ?, ?, ?)',
-            recompensas_iniciais
-        )
-
-    conn.commit()
-    conn.close()
-
-
 # --- NOVAS FUNÇÕES ---
 def get_recompensas_disponiveis():
     conn = conectar_db()
@@ -213,7 +229,6 @@ def get_recompensas_disponiveis():
 def resgatar_recompensa(usuario_id, recompensa_id):
     conn = conectar_db()
     cursor = conn.cursor()
-
     try:
         # Verifica pontos e estoque
         cursor.execute('SELECT pontos FROM usuarios WHERE id = ?', (usuario_id,))
@@ -247,4 +262,38 @@ def resgatar_recompensa(usuario_id, recompensa_id):
     finally:
         conn.close()
 
+
+
+# --- INTERFACE GRÁFICA ---
+def exportar_csv():
+    filepath = filedialog.asksaveasfilename(
+        defaultextension=".csv",
+        filetypes=[("Arquivos CSV", "*.csv")],
+        title="Salvar como")
+
+    if not filepath:
+        return
+
+    try:
+        with open(filepath, 'w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Data", "Usuário", "Ação", "Pontos"])
+
+            conn = conectar_db()
+            cursor = conn.cursor()
+            cursor.execute('''
+                           SELECT a.data, u.nome, a.acao, a.pontos
+                           FROM acoes a
+                                    JOIN usuarios u ON a.usuario_id = u.id
+                           ORDER BY a.data DESC
+                           ''')
+
+            for row in cursor.fetchall():
+                writer.writerow(row)
+
+            conn.close()
+
+        messagebox.showinfo("Sucesso", f"Dados exportados para:\n{filepath}")
+    except Exception as e:
+        messagebox.showerror("Erro", f"Falha ao exportar:\n{str(e)}")
 
